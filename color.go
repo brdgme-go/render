@@ -67,3 +67,13 @@ var PlayerColors = []string{
 func PlayerColor(p int) string {
 	return PlayerColors[p%len(PlayerColors)]
 }
+
+const contrastThreshold = 0x18000
+
+func ContrastMono(c color.Color) color.Color {
+	r, g, b, _ := c.RGBA()
+	if r+g+b > contrastThreshold {
+		return Colors[White]
+	}
+	return Colors[Black]
+}
