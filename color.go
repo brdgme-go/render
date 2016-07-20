@@ -57,7 +57,7 @@ var PlayerColors = []string{
 	Green,
 	Red,
 	Blue,
-	Orange,
+	Yellow,
 	Purple,
 	Brown,
 	BlueGrey,
