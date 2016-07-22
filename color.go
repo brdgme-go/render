@@ -1,6 +1,11 @@
 package render
 
-import "image/color"
+import (
+	"fmt"
+	"image/color"
+	"strconv"
+	"strings"
+)
 
 const (
 	Red        = "red"
@@ -76,4 +81,50 @@ func ContrastMono(c color.Color) color.Color {
 		return Colors[White]
 	}
 	return Colors[Black]
+}
+
+func parseUint8(s string) (uint8, error) {
+	i, err := strconv.Atoi(s)
+	if err != nil {
+		return 0, fmt.Errorf("unable to parse int, %s", err)
+	}
+	if i < 0 || i > 255 {
+		return 0, fmt.Errorf("expect between 0 and 255, got %d", i)
+	}
+	return uint8(i), nil
+}
+
+func parseUint8s(strs []string) ([]uint8, error) {
+	l := len(strs)
+	is := make([]uint8, len(strs))
+	if l == 0 {
+		return is, nil
+	}
+	var err error
+	for k, s := range strs {
+		is[k], err = parseUint8(s)
+		if err != nil {
+			return is, fmt.Errorf("unable to parse int at index %d, %s", k, err)
+		}
+	}
+	return is, nil
+}
+
+func ParseColor(s string) (color.Color, error) {
+	// Use color names before RGB.
+	if c, ok := Colors[s]; ok {
+		return c, nil
+	}
+	// Fall back to RGB.
+	parts := strings.Split(s, ",")
+	if len(parts) == 3 {
+		is, err := parseUint8s(parts)
+		if err == nil {
+			return color.RGBA{is[0], is[1], is[2], 255}, nil
+		}
+	}
+	return nil, fmt.Errorf(
+		"'%s' is not a valid color, please use a valid color string or R,G,B in decimal bytes",
+		s,
+	)
 }
