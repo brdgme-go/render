@@ -78,9 +78,9 @@ const contrastThreshold = 0x18000
 func ContrastMono(c color.Color) color.Color {
 	r, g, b, _ := c.RGBA()
 	if r+g+b > contrastThreshold {
-		return Colors[White]
+		return Colors[Black]
 	}
-	return Colors[Black]
+	return Colors[White]
 }
 
 func parseUint8(s string) (uint8, error) {

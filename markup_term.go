@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"image/color"
+	"strings"
 )
 
 type style struct {
@@ -39,11 +40,7 @@ var defaultStyle = style{
 func TermMarkupFuncs(playerNames []string) map[string]MarkupFunc {
 	mf := DefaultMarkupFuncs(playerNames)
 	styleStack := []style{defaultStyle}
-	styleChange := func(
-		content string,
-		mp MarkupParser,
-		f func(style) style,
-	) (string, error) {
+	pushStyle := func(f func(style) style) (string, error) {
 		l := len(styleStack)
 		if l == 0 {
 			return "", errors.New("styleStack is empty")
@@ -51,28 +48,32 @@ func TermMarkupFuncs(playerNames []string) map[string]MarkupFunc {
 		oldStyle := styleStack[l-1]
 		newStyle := f(oldStyle)
 		styleStack = append(styleStack, newStyle)
-		parsedContent, err := mp(content)
-		if err != nil {
-			return "", err
-		}
-		styleStack = styleStack[:l]
-		return fmt.Sprintf(
-			"%s%s%s",
-			newStyle,
-			parsedContent,
-			oldStyle,
-		), nil
+		return newStyle.String(), nil
 	}
-	mf["b"] = func(content string, args []string, mp MarkupParser) (string, error) {
+	popStyle := func() (string, error) {
+		l := len(styleStack)
+		if l <= 1 {
+			return "", errors.New("styleStack is empty")
+		}
+		styleStack = styleStack[:l-1]
+		return styleStack[l-2].String(), nil
+	}
+	mf["#b"] = func(args []string) (string, error) {
 		if len(args) > 0 {
 			return "", errors.New("{{#b}} takes no arguments")
 		}
-		return styleChange(content, mp, func(s style) style {
+		return pushStyle(func(s style) style {
 			s.bold = true
 			return s
 		})
 	}
-	mf["fg"] = func(content string, args []string, mp MarkupParser) (string, error) {
+	mf["/b"] = func(args []string) (string, error) {
+		if len(args) > 0 {
+			return "", errors.New("{{#b}} takes no arguments")
+		}
+		return popStyle()
+	}
+	mf["#fg"] = func(args []string) (string, error) {
 		if len(args) != 1 {
 			return "", errors.New("{{#fg}} expects one argument")
 		}
@@ -80,12 +81,18 @@ func TermMarkupFuncs(playerNames []string) map[string]MarkupFunc {
 		if err != nil {
 			return "", err
 		}
-		return styleChange(content, mp, func(s style) style {
+		return pushStyle(func(s style) style {
 			s.fg = c
 			return s
 		})
 	}
-	mf["bg"] = func(content string, args []string, mp MarkupParser) (string, error) {
+	mf["/fg"] = func(args []string) (string, error) {
+		if len(args) > 0 {
+			return "", errors.New("{{/fg}} takes no arguments")
+		}
+		return popStyle()
+	}
+	mf["#bg"] = func(args []string) (string, error) {
 		if len(args) != 1 {
 			return "", errors.New("{{#bg}} expects one argument")
 		}
@@ -93,10 +100,33 @@ func TermMarkupFuncs(playerNames []string) map[string]MarkupFunc {
 		if err != nil {
 			return "", err
 		}
-		return styleChange(content, mp, func(s style) style {
+		return pushStyle(func(s style) style {
 			s.bg = c
 			return s
 		})
 	}
+	mf["/bg"] = func(args []string) (string, error) {
+		if len(args) > 0 {
+			return "", errors.New("{{/bg}} takes no arguments")
+		}
+		return popStyle()
+	}
 	return mf
+}
+
+func RenderTerm(content string, playerNames []string) (string, error) {
+	output, err := ParseMarkup(content, TermMarkupFuncs(playerNames))
+	if err != nil {
+		return "", err
+	}
+	lines := strings.Split(output, "\n")
+	for i, l := range lines {
+		lines[i] = fmt.Sprintf("%s\x1b[K", l)
+	}
+	return fmt.Sprintf(
+		"%s%s%s",
+		defaultStyle.String(),
+		strings.Join(lines, "\n"),
+		"\x1b[0m",
+	), nil
 }
